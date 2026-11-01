@@ -26,10 +26,28 @@ const API = 'https://api.github.com'
 const UPSTREAM = 'awesome-dsh-plugin/awesome-dsh-plugin'
 const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
 const repoName = 'dsh-ssh-mac'
+const sshUrl = `git@github.com:${process.argv[process.argv.indexOf('--owner') + 1] ?? 'skyzzq'}/${repoName}.git`
 
 if (!token) {
-  console.error('GH_TOKEN is not set. Create a token with `repo` scope (classic) or Contents/Admin/PR write (fine-grained).')
-  process.exit(2)
+  // No API credential: push over SSH and leave the three web actions explicit.
+  console.log('GH_TOKEN is not set — pushing over SSH and stopping before the API steps.')
+  if (!existsSync(join(root, '.git'))) git(['init', '-b', 'main'])
+  git(['add', '-A'])
+  try {
+    git(['commit', '-m', `dsh-ssh-mac ${JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version}`])
+  } catch {
+    console.log('nothing new to commit')
+  }
+  git(['-c', 'credential.helper=', 'push', sshUrl, 'HEAD:refs/heads/main'], {
+    env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+  })
+  console.log(`pushed to ${sshUrl}
+
+still manual (need a browser or a token):
+  1. Settings -> topics: add \`dsh-plugin\`
+  2. Releases -> draft v1.0.0, attach release/dsh-ssh-mac.tgz
+  3. fork awesome-dsh-plugin, add data/plugins/<owner>__${repoName}.yml, open the PR`)
+  process.exit(0)
 }
 
 let owner = process.argv[process.argv.indexOf('--owner') + 1]
@@ -77,8 +95,8 @@ if (!repo) {
   console.log(`repo exists: ${repo.html_url}`)
 }
 
-// 2. push
-const remote = `https://x-access-token:${token}@github.com/${owner}/${repoName}.git`
+// 2. push — the token goes on the command line only, never into .git/config
+const tokenUrl = `https://x-access-token:${token}@github.com/${owner}/${repoName}.git`
 if (!existsSync(join(root, '.git'))) {
   git(['init', '-b', 'main'])
 }
@@ -88,9 +106,9 @@ try {
 } catch {
   console.log('nothing new to commit')
 }
-git(['remote', 'remove', 'origin'], { stdio: 'ignore' })
-git(['remote', 'add', 'origin', remote])
-git(['push', '-u', 'origin', 'main', '--force'])
+git(['-c', 'credential.helper=', 'push', tokenUrl, 'HEAD:refs/heads/main'], {
+  env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+})
 console.log('pushed main')
 
 // 3. topic
