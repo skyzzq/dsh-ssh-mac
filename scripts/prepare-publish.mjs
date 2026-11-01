@@ -49,6 +49,7 @@ category: remote
 description:
   en: Resolves an SSH host by its NIC MAC address before dialing, so DHCP address changes stop breaking saved hosts.
   zh: 建链前先按网卡 MAC 把主机解析成当前 IP，DHCP 换号不用改配置。
+tarball: https://github.com/${owner}/${repo}/releases/latest/download/dsh-ssh-mac.tgz
 `
 writeFileSync(join(entryDir, `awesome-entry-${owner}__${repo}.yml`), entry)
 console.log(`entry -> docs/awesome-entry-${owner}__${repo}.yml`)
