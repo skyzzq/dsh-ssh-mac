@@ -2,16 +2,21 @@
 
 市场列表不在插件应用仓库里，而在精选列表 `awesome-dsh-plugin`。往 dsh-market 提条目没用，收录走那边的一条 YAML。
 
-## 发布前已核对
+## 当前进度
 
-| 要求 | 状态 |
+| 事项 | 状态 |
 | --- | --- |
-| `package.json` 声明 `dsh.bundle` | 已有，`dsh.bundle.patch` 指向 `./cordis.patch.yml` |
-| 仓库有真实可运行代码 | `src/` 全部源码 + `lib/` 预构建产物 |
-| 仓库创建满 1 天 | 建仓库后等一天再提 PR，CI 自动卡 |
-| 仓库加 `dsh-plugin` topic | `prepare-publish.mjs` / `publish-github.mjs` 会加 |
-| 官方 `@deepseek-ai/*` 用 peerDependencies | `@deepseek-ai/dsh`、`@deepseek-ai/schemastery` 已挪到 peer，范围带预发布分支 |
-| 描述与代码相符 | 一行说明只讲「按 MAC 解析地址」，不写功能数量 |
+| 仓库 `skyzzq/dsh-ssh-mac` | 已建（公开，2026-11-01T11:21Z） |
+| 源码推送 | 已推，`main` = `765e006`，65 个文件，`lib/` 预构建产物在库里 |
+| `dsh.bundle` 声明 | 远端 `package.json` 已核对 |
+| 条目文件 | `docs/awesome-entry-skyzzq__dsh-ssh-mac.yml` |
+| 发布 tarball | `release/dsh-ssh-mac.tgz`（407 KB，51 个文件） |
+| `dsh-plugin` topic | 待加（需网页或 token） |
+| release `v1.0.0` + 附件 | 待建（需网页或 token） |
+| awesome-dsh-plugin PR | 待提，且需仓库满 1 天：2026-11-02T11:21Z 之后 |
+
+本机 SSH 私钥 `~/.ssh/id_ed25519` 已被 GitHub 认作 `skyzzq`，推送走 SSH 即可；API 类的动作（topic、release、PR）没有凭据就做不了。
+
 
 ## 两条路
 
