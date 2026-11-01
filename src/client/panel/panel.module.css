@@ -1,0 +1,1464 @@
+/**
+ * dsh-ssh-mac panel styles — RhineLabUI visual language.
+ *
+ * Grammar (from LBEILC/RhineLabUI, MIT): warm paper surfaces, ink type, one
+ * warm-amber signal colour, 1px hairlines instead of shadows and rounded
+ * chrome, squared 2px corners, micro labels in uppercase with wide tracking,
+ * and short mechanical transitions (150–180ms). Assets are reused from that
+ * project: the palette below is its `theme-ui.ts` values, the mark is its
+ * brand geometry (see `rhine.tsx`).
+ *
+ * Theme safety: the surfaces stay derived from the dsh `--dsw-*` tokens where
+ * legibility depends on them, and the Rhine values are mixed in so the panel
+ * keeps its paper-and-ink character in both light and dark GUI themes. Every
+ * rule is scoped under the panel root's own classes, so nothing leaks.
+ */
+
+.panel,
+.modal {
+  /* Rhine palette, warm-paper family. Dark values swap under a dark surface. */
+  --rh-ink: #080a08;
+  --rh-muted: #77756d;
+  --rh-line: #aaa59a;
+  --rh-paper: #eae5e1;
+  --rh-panel: #edebe4;
+  --rh-field: #e7e3d9;
+  --rh-accent: #9b7247;
+  --rh-accent-soft: rgb(155 114 71 / 12%);
+  --rh-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+  --rh-ease: cubic-bezier(0.2, 0, 0.2, 1);
+  --rh-tap: 150ms;
+  --rh-switch: 180ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel,
+  .modal {
+    --rh-ink: #e0e3dc;
+    --rh-muted: #a6b0b1;
+    --rh-line: #536166;
+    --rh-paper: #11181b;
+    --rh-panel: #202a2f;
+    --rh-field: #2a363b;
+    --rh-accent: #c5a16b;
+    --rh-accent-soft: rgb(197 161 107 / 16%);
+  }
+}
+
+/* --- panel frame -------------------------------------------------------------- */
+
+.view {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 0;
+  padding: 0;
+  color: var(--rh-ink);
+  background:
+    linear-gradient(180deg, var(--rh-accent-soft), transparent 180px),
+    var(--dsw-alias-bg-base, var(--rh-paper));
+  /* MiSans is the upstream face; it is referenced, never vendored. */
+  font-family: MiSans, var(--dsw-font-family);
+  font-weight: 400;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Identity strip: mark + wordmark, closed by the header hairline. */
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 12px 16px 10px;
+  color: var(--rh-ink);
+  border-bottom: 1px solid var(--rh-line);
+}
+
+.brandMeta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+/* Rhine status light: a small dot with a soft halo in the signal colour. */
+.statusLight {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--rh-accent);
+  box-shadow: 0 0 0 3px var(--rh-accent-soft);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rh-line);
+}
+
+.panelTitle {
+  margin: 0;
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--rh-ink);
+  white-space: nowrap;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* --- tab bar ------------------------------------------------------------------ */
+
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: none;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--rh-line);
+  background: transparent;
+}
+
+.tab {
+  position: relative;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--rh-tap) var(--rh-ease);
+}
+
+/* The indicator is a 1px rule that grows from the centre, not a fatter border. */
+.tab::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 1px;
+  background: var(--rh-accent);
+  transform: scaleX(0);
+  transform-origin: 50% 100%;
+  transition: transform var(--rh-switch) var(--rh-ease);
+}
+
+.tab:hover {
+  color: var(--rh-ink);
+}
+
+.tab[data-active] {
+  color: var(--rh-ink);
+}
+
+.tab[data-active]::after {
+  transform: scaleX(1);
+}
+
+.panelContent {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px 16px 16px;
+}
+
+/* Tab body fade-in on switch: 150ms, no slide, reduced-motion aware. */
+.panelContent > * {
+  animation: rhineFade var(--rh-tap) var(--rh-ease) both;
+}
+
+@keyframes rhineFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panelContent > *,
+  .tab::after,
+  .progressBar {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Scrollable tab body (transfer / tunnels); hosts and cluster use fillBody so
+   their toolbars stay put while the table scrolls internally. */
+.tabBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.fillBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* --- toolbar / controls ------------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.controls .input {
+  flex: 0 1 260px;
+  min-width: 150px;
+}
+
+.toolbarSpacer {
+  flex: 1;
+}
+
+.search {
+  flex: 0 1 260px;
+  min-width: 120px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--rh-ink);
+  background: var(--rh-field);
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  outline: none;
+  transition: border-color var(--rh-tap) var(--rh-ease);
+}
+
+.search::placeholder {
+  color: var(--rh-muted);
+  letter-spacing: 0.04em;
+}
+
+.search:focus {
+  border-color: var(--rh-accent);
+}
+
+.groupBySelect {
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--rh-ink);
+  background: var(--rh-field);
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  outline: none;
+}
+
+.groupBySelect:focus {
+  border-color: var(--rh-accent);
+}
+
+/* --- host groups (#379) ------------------------------------------------------- */
+
+.groupSection + .groupSection {
+  border-top: 1px solid var(--rh-line);
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  position: sticky;
+  top: 0;
+  background: var(--dsw-alias-bg-base, var(--rh-paper));
+  border-bottom: 1px solid var(--rh-line);
+}
+
+.groupToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: none;
+  background: none;
+  color: var(--rh-ink);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 2px;
+  transition: color var(--rh-tap) var(--rh-ease);
+}
+
+.groupToggle:hover {
+  color: var(--rh-accent);
+}
+
+.groupChevron {
+  width: 6px;
+  height: 6px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--rh-tap) var(--rh-ease);
+  flex: none;
+  margin-bottom: 2px;
+}
+
+.groupChevron[data-collapsed] {
+  transform: rotate(-45deg);
+  margin-bottom: 0;
+}
+
+.groupName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupCount {
+  color: var(--rh-muted);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  flex: none;
+}
+
+/* --- tables ------------------------------------------------------------------- */
+
+.tableWrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  background: transparent;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--dsw-alias-bg-layer-2, var(--rh-panel));
+  color: var(--rh-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--rh-line);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--rh-line) 45%, transparent);
+  vertical-align: top;
+  color: var(--rh-ink);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr {
+  transition: background-color var(--rh-tap) var(--rh-ease);
+}
+
+.table tbody tr:hover td {
+  background: var(--rh-accent-soft);
+}
+
+.mono {
+  font-family: var(--rh-mono);
+  letter-spacing: -0.01em;
+}
+
+.cellMuted {
+  color: var(--rh-muted);
+}
+
+/* MAC column: the address that makes this panel MAC-first, so it reads as the
+   one warm signal in an otherwise ink-only table. */
+.macCell {
+  font-family: var(--rh-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: var(--rh-muted);
+  white-space: nowrap;
+}
+
+.macCell[data-mac] {
+  color: var(--rh-accent);
+}
+
+/* The stored address and the MAC it resolves from, stacked in one cell: the
+   table keeps 8 columns instead of 9, so the identity columns stay on screen
+   in a narrow panel. */
+.cellStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.macLine {
+  font-family: var(--rh-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--rh-accent);
+}
+
+/* Identity column stays put while the wide metadata columns scroll. */
+.aliasCell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--dsw-alias-bg-base, var(--rh-paper));
+}
+
+.table th.aliasCell {
+  z-index: 3;
+  background: var(--dsw-alias-bg-layer-2, var(--rh-panel));
+}
+
+.table td.aliasCell {
+  border-right: 1px solid color-mix(in srgb, var(--rh-line) 45%, transparent);
+}
+
+/* Secondary identity line: environment under the alias, MAC under the address.
+   Both keep their column but not their own width. */
+.metaLine {
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+/* Metadata can wrap instead of widening the table past the panel. */
+.table td:nth-child(4),
+.table td:nth-child(5) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 180px;
+}
+
+.table td:nth-child(3) .badge {
+  margin-top: 2px;
+  align-self: flex-start;
+}
+
+/* Host list: one card per host instead of a wide table. Six columns never fit
+   this panel, and horizontal scrolling hid the very columns that matter —
+   alias, address and MAC. Cards wrap instead of scrolling. */
+.listWrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 2px 14px;
+}
+
+.hostList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hostCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 12px 10px;
+  border: 1px solid color-mix(in srgb, var(--rh-line) 55%, transparent);
+  border-radius: 2px;
+  background: var(--dsw-alias-bg-base, var(--rh-paper));
+  transition: border-color var(--rh-switch) var(--rh-ease), background var(--rh-switch) var(--rh-ease);
+}
+
+.hostCard:hover {
+  border-color: color-mix(in srgb, var(--rh-accent) 70%, transparent);
+}
+
+.hostHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.hostAlias {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--rh-ink);
+}
+
+.hostSpacer {
+  flex: 1 1 auto;
+}
+
+.hostAddr {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--rh-ink);
+}
+
+.hostMac {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--rh-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--rh-accent);
+}
+
+.hostMacLabel {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+.hostMeta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--rh-muted);
+}
+
+.hostDesc {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--rh-muted);
+  overflow-wrap: anywhere;
+}
+
+.hostActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* A one-character rule used between meta fragments: a period, not a bullet. */
+.dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--rh-line);
+}
+
+/* Environment badge in the card head. */
+.chip {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rh-accent);
+  border: 1px solid color-mix(in srgb, var(--rh-accent) 40%, transparent);
+  border-radius: 2px;
+  padding: 1px 5px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.inlineTest {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--rh-mono);
+  font-size: 11px;
+  color: var(--rh-muted);
+}
+
+.inlineTest[data-status='ok'] {
+  color: var(--rh-accent);
+}
+
+.inlineTest[data-status='fail'] {
+  color: var(--dsw-alias-state-error-primary, #b4513f);
+}
+
+/* --- badges ------------------------------------------------------------------- */
+
+.badge {
+  display: inline-block;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.7;
+  border-radius: 2px;
+  border: 1px solid var(--rh-line);
+  color: var(--rh-muted);
+  white-space: nowrap;
+}
+
+.badge[data-kind='key'] {
+  color: var(--rh-accent);
+  border-color: var(--rh-accent);
+}
+
+.badge[data-kind='password'] {
+  color: var(--dsw-alias-state-warn-primary, #a8762c);
+  border-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+.badge[data-kind='agent'] {
+  color: var(--rh-ink);
+  border-color: var(--rh-line);
+}
+
+.badge[data-kind='proxy'] {
+  margin-left: 6px;
+  color: var(--rh-muted);
+  border-color: var(--rh-line);
+}
+
+.badge[data-kind='forward-agent'] {
+  margin-left: 6px;
+  color: var(--rh-muted);
+  border-color: var(--rh-line);
+  border-style: dashed;
+}
+
+.badge[data-status='ok'] {
+  color: var(--rh-accent);
+  border-color: var(--rh-accent);
+}
+
+.badge[data-status='fail'] {
+  color: var(--dsw-alias-state-error-primary, #b4513f);
+  border-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+.badge[data-status='timeout'] {
+  color: var(--dsw-alias-state-warn-primary, #a8762c);
+  border-color: color-mix(in srgb, currentColor 60%, transparent);
+}
+
+/* --- buttons ------------------------------------------------------------------ */
+
+.primaryButton {
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rh-paper);
+  background: var(--rh-accent);
+  border: 1px solid var(--rh-accent);
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--rh-tap) var(--rh-ease), color var(--rh-tap) var(--rh-ease);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--rh-accent) 82%, var(--rh-ink));
+}
+
+.primaryButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ghostButton {
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rh-ink);
+  background: transparent;
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--rh-tap) var(--rh-ease), color var(--rh-tap) var(--rh-ease);
+}
+
+.ghostButton:hover:not(:disabled) {
+  color: var(--rh-accent);
+  border-color: var(--rh-accent);
+}
+
+.ghostButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The back affordance is chrome, not an action: no box, just an ink arrow. */
+.backButton {
+  border-color: transparent;
+  letter-spacing: 0.1em;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--rh-muted);
+  cursor: pointer;
+  font-size: 13px;
+  transition: color var(--rh-tap) var(--rh-ease), border-color var(--rh-tap) var(--rh-ease);
+}
+
+.iconButton:hover {
+  color: var(--rh-ink);
+  border-color: var(--rh-line);
+}
+
+.linkButton {
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--rh-tap) var(--rh-ease);
+}
+
+.linkButton:hover:not(:disabled) {
+  color: var(--rh-accent);
+}
+
+.linkButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.linkButton[data-danger] {
+  color: var(--dsw-alias-state-error-primary, #b4513f);
+}
+
+/* --- spinner / banners / states ------------------------------------------------ */
+
+.spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border: 1px solid var(--rh-accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: rhineSpin 760ms linear infinite;
+  vertical-align: -1px;
+}
+
+@keyframes rhineSpin {
+  to { transform: rotate(360deg); }
+}
+
+.banner {
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  border-radius: 2px;
+  border: 1px solid var(--rh-line);
+  border-left-width: 2px;
+  color: var(--rh-muted);
+  overflow-wrap: anywhere;
+}
+
+.banner[data-kind='ok'] {
+  color: var(--rh-ink);
+  border-left-color: var(--rh-accent);
+}
+
+.banner[data-kind='error'] {
+  color: var(--rh-ink);
+  border-left-color: var(--dsw-alias-state-error-primary, #b4513f);
+}
+
+.banner[data-kind='info'] {
+  color: var(--rh-ink);
+  border-left-color: var(--rh-line);
+}
+
+/* Import skip detail: what an import left out and why (#1448). */
+.importSkips {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  background: transparent;
+}
+
+.importSkipRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--rh-muted);
+}
+
+.empty {
+  padding: 30px 12px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+.loading {
+  padding: 30px 12px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+/* --- modal (host form) -------------------------------------------------------- */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--rh-ink) 45%, transparent);
+  backdrop-filter: blur(2px);
+  animation: rhineFade 200ms var(--rh-ease) both;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(560px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  padding: 20px;
+  color: var(--rh-ink);
+  font-family: MiSans, var(--dsw-font-family);
+  background: var(--dsw-alias-bg-base, var(--rh-panel));
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  /* Hairline frame plus one long soft shadow: the paper lifts off the page. */
+  box-shadow: 0 24px 60px -32px rgb(8 10 8 / 55%);
+  animation: rhineRise 300ms var(--rh-ease) both;
+}
+
+@keyframes rhineRise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal,
+  .modalBackdrop {
+    animation: none;
+  }
+}
+
+.modalTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rh-ink);
+}
+
+/* Keyboard-interactive auth prompt: same paper card, slightly narrower. */
+.modalCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  color: var(--rh-ink);
+  font-family: MiSans, var(--dsw-font-family);
+  background: var(--dsw-alias-bg-base, var(--rh-panel));
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  box-shadow: 0 24px 60px -32px rgb(8 10 8 / 55%);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rh-line);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rh-line);
+}
+
+.formError {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--dsw-alias-state-error-primary, #b4513f);
+}
+
+.hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--rh-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fieldLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+.input {
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--rh-ink);
+  background: var(--rh-field);
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  outline: none;
+  resize: vertical;
+  transition: border-color var(--rh-tap) var(--rh-ease);
+}
+
+.input:focus {
+  border-color: var(--rh-accent);
+}
+
+.input::placeholder {
+  color: var(--rh-muted);
+}
+
+.input:disabled {
+  opacity: 0.55;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 12px;
+}
+
+.radioRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.radioLabel {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--rh-ink);
+  cursor: pointer;
+}
+
+.radioLabel input[type='radio'] {
+  accent-color: var(--rh-accent);
+}
+
+/* --- terminal ----------------------------------------------------------------- */
+
+.termBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Terminal tab strip (issue #1950): one row of host PTY sessions above the
+   toolbar. It scrolls sideways instead of wrapping so the controls above the
+   terminal never move as tabs accumulate. */
+.termTabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--rh-line);
+}
+
+.termTab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  max-width: 200px;
+}
+
+.termTab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--rh-accent);
+  transform: scaleX(0);
+  transform-origin: 50% 100%;
+  transition: transform var(--rh-switch) var(--rh-ease);
+}
+
+.termTab[data-active]::after {
+  transform: scaleX(1);
+}
+
+.termTabLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 4px 6px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  color: var(--rh-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--rh-tap) var(--rh-ease);
+}
+
+.termTabLabel:hover {
+  color: var(--rh-ink);
+}
+
+.termTab[data-active] .termTabLabel {
+  color: var(--rh-ink);
+  font-weight: 600;
+}
+
+.termTabAlias {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.termTabState {
+  flex: none;
+  font-family: var(--rh-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--rh-muted);
+}
+
+.termTabState[data-state='error'] {
+  color: var(--dsw-alias-state-error-primary, #b4513f);
+}
+
+.termTabState[data-state='exited'] {
+  color: var(--rh-muted);
+}
+
+.termTabClose,
+.termTabNew {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--rh-muted);
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: color var(--rh-tap) var(--rh-ease);
+}
+
+.termTabNew {
+  width: 24px;
+  margin: 2px 0 2px 4px;
+  font-size: 14px;
+}
+
+.termTabClose:hover,
+.termTabNew:hover:not(:disabled) {
+  color: var(--rh-accent);
+}
+
+.termTabNew:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.termWrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  overflow: hidden;
+  /* Rhine near-black: warm-leaning, never pure #000. */
+  background: #0b0e0d;
+}
+
+.termContainer {
+  position: absolute;
+  /* Inset offsets, not padding: FitAddon measures this element's height as
+     the drawable area, so padding here would be measured as terminal space
+     and clip the bottom line under a global border-box reset. */
+  inset: 8px 10px;
+}
+
+.termPlaceholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+  background: var(--dsw-alias-bg-base, var(--rh-paper));
+}
+
+/* --- transfer ----------------------------------------------------------------- */
+
+.hiddenFile {
+  display: none;
+}
+
+.browsePanel {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.browseHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border-bottom: 1px solid var(--rh-line);
+}
+
+.browsePath {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--rh-mono);
+  font-size: 11.5px;
+  color: var(--rh-muted);
+}
+
+.browseList {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.dirRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 10px;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: var(--rh-ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--rh-line) 45%, transparent);
+  cursor: pointer;
+  transition: background-color var(--rh-tap) var(--rh-ease);
+}
+
+.dirRow:hover {
+  background: var(--rh-accent-soft);
+}
+
+.dirRow[data-type='dir'] .dirName {
+  color: var(--rh-accent);
+}
+
+.dirRow[data-up] {
+  color: var(--rh-muted);
+}
+
+.dirName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--rh-mono);
+}
+
+.dirType {
+  color: var(--rh-muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dirSize {
+  color: var(--rh-muted);
+  font-family: var(--rh-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.transferBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+
+.progressMeta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--rh-mono);
+  font-size: 11px;
+  color: var(--rh-muted);
+}
+
+/* Progress reads as a thin metered rule, not a pill. */
+.progressTrack {
+  height: 2px;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--rh-line) 60%, transparent);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: 0;
+  background: var(--rh-accent);
+  transition: width 120ms linear;
+}
+
+/* --- tunnels ------------------------------------------------------------------ */
+
+.tunnelList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+
+.tunnelRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--rh-line);
+  border-left-width: 2px;
+  border-radius: 2px;
+}
+
+.tunnelRow[data-state='forwarding'] {
+  border-left-color: var(--rh-accent);
+}
+
+.tunnelRow[data-state='connecting'] {
+  border-left-color: var(--dsw-alias-state-warn-primary, #a8762c);
+}
+
+.tunnelRow[data-state='failed'] {
+  border-left-color: var(--dsw-alias-state-error-primary, #b4513f);
+}
+
+.tunnelLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--rh-mono);
+  font-size: 11.5px;
+  color: var(--rh-ink);
+}
+
+.formCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  flex: none;
+}
+
+/* --- cluster ------------------------------------------------------------------ */
+
+.clusterForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+
+.clusterFilters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.commandInput {
+  min-height: 96px;
+  font-family: var(--rh-mono);
+  font-size: 12px;
+}
+
+.cellDetails summary {
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rh-muted);
+}
+
+.cellPre {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  max-height: 180px;
+  overflow: auto;
+  background: transparent;
+  border: 1px solid var(--rh-line);
+  border-radius: 2px;
+  font-family: var(--rh-mono);
+  font-size: 11px;
+  color: var(--rh-ink);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* --- mac-first surfaces ------------------------------------------------------- */
+
+/* The MAC column and the resolve table share this accent rule under the tab. */
+.macRule {
+  height: 1px;
+  background: linear-gradient(90deg, var(--rh-accent), transparent);
+  flex: none;
+}

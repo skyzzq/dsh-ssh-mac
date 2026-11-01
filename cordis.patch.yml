@@ -1,0 +1,14 @@
+# dsh-ssh-mac bundle patch: inserts our MAC-first SSH row into the profile
+# roster. Same shape as the upstream @linxin666/dsh-ssh row, but a different
+# id so the two can coexist: `ssh` stays as the upstream plugin and `ssh-mac`
+# is this fork. Disable the `ssh` row when only the MAC-first behaviour is
+# wanted — both would otherwise register the same /api/dsh-ssh routes and the
+# same ssh_* tool names.
+#
+# The row is a bare plugin by package name: the node half (exports ".") runs
+# in the host process (SSH engine, /api/dsh-ssh routes, agent tools), and the
+# `dsh.client` declaration in package.json makes the browser half
+# (exports "./client", served at /plugins/<id>/client.js) load in the web GUI.
+- insert:
+    - id: ssh-mac
+      name: 'dsh-ssh-mac'

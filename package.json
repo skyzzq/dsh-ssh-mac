@@ -1,0 +1,90 @@
+{
+  "name": "dsh-ssh-mac",
+  "description": "MAC-first SSH plugin for DeepSeek Harness: resolves a host by NIC address before dialing",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.1-rc.3"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ],
+      "platform": "web"
+    }
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "ssh2": "^1.17.0",
+    "ws": "^8.18.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.2.1-rc.3 <0.3.0-0",
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "tsdown": "0.22.2",
+    "typescript": "~5.7.3"
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/**/*.js.map",
+    "src",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "sync": "node scripts/sync-to-profile.mjs",
+    "rebuild": "tsdown && node scripts/sync-to-profile.mjs",
+    "verify": "node --experimental-strip-types scratch/verify.ts",
+    "typecheck": "tsc -p tsconfig.host.json",
+    "build:client": "node scripts/build-client.mjs",
+    "build:all": "tsdown && node scripts/build-client.mjs",
+    "pack:release": "node scripts/prepare-publish.mjs"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skyzzq/dsh-ssh-mac.git"
+  },
+  "homepage": "https://github.com/skyzzq/dsh-ssh-mac#readme",
+  "bugs": {
+    "url": "https://github.com/skyzzq/dsh-ssh-mac/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "ssh",
+    "mac-address",
+    "dhcp",
+    "remote"
+  ],
+  "author": "zzq"
+}
