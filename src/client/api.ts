@@ -266,6 +266,31 @@ export class SshApi {
     await readJson<{ ok: boolean }>(response)
   }
 
+  /** Persist a new host order; the whole list comes back in the stored order. */
+  async reorderHosts(aliases: string[]): Promise<SshHostSummary[]> {
+    const response = await fetch(SSH_API.reorder, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ aliases }),
+    })
+    const body = await readJson<{ hosts: SshHostSummary[] }>(response)
+    return body.hosts
+  }
+
+  /**
+   * Drop the pooled SSH connection for one server without touching its record.
+   * Used when the last terminal window for that server closes.
+   * @param alias - the server whose connection should end.
+   */
+  async disconnectHost(alias: string): Promise<void> {
+    const response = await fetch(SSH_API.disconnect, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ alias }),
+    })
+    await readJson<{ ok: boolean }>(response)
+  }
+
   async importSshConfig(): Promise<ImportResult> {
     const response = await fetch(SSH_API.importSshConfig, { method: 'POST' })
     const body = await readJson<{ result: ImportResult }>(response)

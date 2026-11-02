@@ -28,6 +28,24 @@ const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
 const repoName = 'dsh-ssh-mac'
 const sshUrl = `git@github.com:${process.argv[process.argv.indexOf('--owner') + 1] ?? 'skyzzq'}/${repoName}.git`
 
+const dryRun = process.argv.includes('--dry-run')
+
+if (dryRun) {
+  const entry = join(root, 'docs', `awesome-entry-skyzzq__${repoName}.yml`)
+  const tarball = join(root, 'release', 'dsh-ssh-mac.tgz')
+  const lines = [
+    `version       ${JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version}`,
+    `bundle patch  ${JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).dsh?.bundle?.patch ?? '(missing!)'}`,
+    `entry file    ${existsSync(entry) ? entry : '(missing!)'}`,
+    `tarball       ${existsSync(tarball) ? `${tarball} ${readFileSync(tarball).length} bytes` : '(missing — npm run pack:release --owner skyzzq)'}`,
+    existsSync(join(root, '.git')) ? `branch        ${git(['rev-parse', '--abbrev-ref', 'HEAD']).trim()}` : 'branch        (no .git)',
+  ]
+  if (existsSync(entry)) lines.push('', '--- entry payload ---', readFileSync(entry, 'utf8').trimEnd())
+  console.log(lines.join(String.fromCharCode(10)))
+  console.log(String.fromCharCode(10) + 'dry run: no network call, no push, no release, no PR.')
+  process.exit(0)
+}
+
 if (!token) {
   // No API credential: push over SSH and leave the three web actions explicit.
   console.log('GH_TOKEN is not set — pushing over SSH and stopping before the API steps.')
@@ -169,7 +187,15 @@ await api('PUT', `/repos/${login}/awesome-dsh-plugin/contents/${entryPath}`, {
   message: `add ${owner}/${repoName}`,
   content: readFileSync(entryFile).toString('base64'),
   branch: head,
+}).catch(error => {
+  if (/(409|422)/.test(String(error))) return console.log('entry already on the branch')
+  throw error
 })
+const existing = await api('GET', `/repos/${UPSTREAM}/pulls?head=${login}:${head}&state=all`)
+if (Array.isArray(existing) && existing.length > 0) {
+  console.log(`PR already open: ${existing[0].html_url}`)
+  process.exit(0)
+}
 const pr = await api('POST', `/repos/${UPSTREAM}/pulls`, {
   title: `add ${owner}/${repoName}`,
   head: `${login}:${head}`,

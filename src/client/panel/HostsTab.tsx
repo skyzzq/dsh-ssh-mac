@@ -85,6 +85,9 @@ export function HostsTab({ api, onConnect }: HostsTabProps) {
   const [groupBy, setGroupBy] = useState<HostGroupBy>('none')
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [testingGroup, setTestingGroup] = useState<string | null>(null)
+  /** Alias being dragged, and where it would land if dropped right now. */
+  const [dragAlias, setDragAlias] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ alias: string; after: boolean } | null>(null)
   const seqRef = useRef(0)
   // Unmount guard for the async load below: the seq check only orders
   // overlapping loads, it does not stop a late resolution/rejection landing
@@ -177,57 +180,157 @@ export function HostsTab({ api, onConnect }: HostsTabProps) {
     }
   }
 
+  // Dragging is only offered on the flat, unfiltered list: inside a group the
+  // drop target is ambiguous, and a filtered list would write a partial order
+  // back as if it were the whole one.
+  const canReorder = groupBy === 'none' && search.trim() === ''
+
+  /** Persist one move; the list updates first so the drop never snaps back. */
+  const commitReorder = async (from: string, to: string, after: boolean): Promise<void> => {
+    if (hosts === null || from === to) return
+    const current = hosts.map(host => host.alias)
+    const next = current.filter(alias => alias !== from)
+    const targetIndex = next.indexOf(to)
+    if (targetIndex === -1) return
+    next.splice(after ? targetIndex + 1 : targetIndex, 0, from)
+    if (next.every((alias, index) => alias === current[index])) return
+    const previous = hosts
+    const byAlias = new Map(hosts.map(host => [host.alias, host]))
+    setHosts(next.flatMap(alias => {
+      const host = byAlias.get(alias)
+      return host === undefined ? [] : [host]
+    }))
+    setError(null)
+    try {
+      const stored = await api.reorderHosts(next)
+      if (!mountedRef.current) return
+      setHosts(stored)
+    } catch (cause) {
+      if (!mountedRef.current) return
+      setHosts(previous)
+      setError(errorMessage(cause))
+    }
+  }
+
+  /** Keyboard equivalent of a drag: swap with the neighbour above or below. */
+  const moveBy = (alias: string, delta: -1 | 1): void => {
+    if (hosts === null) return
+    const index = hosts.findIndex(host => host.alias === alias)
+    const target = hosts[index + delta]
+    if (index < 0 || target === undefined) return
+    void commitReorder(alias, target.alias, delta === 1)
+  }
+
   const renderHostCard = (host: SshHostSummary): ReactNode => {
     const test = testResults[host.alias]
+    const drop = dropTarget !== null && dropTarget.alias === host.alias ? dropTarget : null
     return (
-      <li key={host.alias} className={css.hostCard}>
-        <div className={css.hostHead}>
-          <span className={`${css.hostAlias} ${css.mono}`}>{host.alias}</span>
-          {host.environment !== undefined && <span className={css.chip}>{host.environment}</span>}
-          {host.proxyCommand !== undefined && (
-            <span className={css.badge} data-kind="proxy" title={host.proxyCommand}>{tt('hosts.proxyBadge')}</span>
+      <li
+        key={host.alias}
+        className={css.hostCard}
+        data-dragging={dragAlias === host.alias || undefined}
+        data-drop={drop === null ? undefined : drop.after ? 'after' : 'before'}
+        onDragOver={canReorder
+          ? event => {
+            // preventDefault is what makes this element a drop target at all.
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'move'
+            const rect = event.currentTarget.getBoundingClientRect()
+            const after = event.clientY - rect.top > rect.height / 2
+            setDropTarget(prev => (prev !== null && prev.alias === host.alias && prev.after === after ? prev : { alias: host.alias, after }))
+          }
+          : undefined}
+        onDrop={canReorder
+          ? event => {
+            event.preventDefault()
+            const from = dragAlias ?? event.dataTransfer.getData('text/plain')
+            // Read the pointer against the rect here instead of trusting the
+            // last dragover state, which can lag by one frame on a fast drag.
+            const rect = event.currentTarget.getBoundingClientRect()
+            const after = event.clientY - rect.top > rect.height / 2
+            setDragAlias(null)
+            setDropTarget(null)
+            if (from === '') return
+            void commitReorder(from, host.alias, after)
+          }
+          : undefined}
+      >
+        <span
+          className={css.dragHandle}
+          role="button"
+          tabIndex={canReorder ? 0 : -1}
+          draggable={canReorder}
+          data-enabled={canReorder || undefined}
+          aria-label={tt('hosts.reorder.handle')}
+          title={canReorder ? tt('hosts.reorder.handle') : tt('hosts.reorder.locked')}
+          onDragStart={event => {
+            setDragAlias(host.alias)
+            setDropTarget(null)
+            event.dataTransfer.effectAllowed = 'move'
+            event.dataTransfer.setData('text/plain', host.alias)
+          }}
+          onDragEnd={() => {
+            setDragAlias(null)
+            setDropTarget(null)
+          }}
+          onKeyDown={event => {
+            if (!canReorder) return
+            if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+            event.preventDefault()
+            moveBy(host.alias, event.key === 'ArrowUp' ? -1 : 1)
+          }}
+        >
+          <span aria-hidden="true">⠿</span>
+        </span>
+        <div className={css.hostBody}>
+          <div className={css.hostHead}>
+            <span className={`${css.hostAlias} ${css.mono}`}>{host.alias}</span>
+            {host.environment !== undefined && <span className={css.chip}>{host.environment}</span>}
+            {host.proxyCommand !== undefined && (
+              <span className={css.badge} data-kind="proxy" title={host.proxyCommand}>{tt('hosts.proxyBadge')}</span>
+            )}
+            {host.forwardAgent === true && (
+              <span className={css.badge} data-kind="forward-agent" title={tt('hosts.forwardAgentHint')}>{tt('hosts.forwardAgentBadge')}</span>
+            )}
+            <span className={css.hostSpacer} />
+            {test !== undefined && (
+              <span className={css.inlineTest} data-status={test.ok ? 'ok' : 'fail'}>
+                {test.ok ? tt('hosts.testOk', { latency: test.latencyMs ?? 0 }) : tt('hosts.testFail', { error: test.error ?? '' })}
+              </span>
+            )}
+            <button type="button" className={css.primaryButton} onClick={() => { onConnect(host.alias) }}>{tt('hosts.connected')}</button>
+          </div>
+          <div className={css.hostAddr}>
+            <span className={css.mono}>{host.host}:{host.port}</span>
+            {host.mac !== undefined && (
+              <span className={css.hostMac}>
+                <span className={css.hostMacLabel}>{tt('hosts.col.mac')}</span>
+                {host.mac}
+              </span>
+            )}
+          </div>
+          <div className={css.hostMeta}>
+            <span>{host.user}</span>
+            <span className={css.dot} aria-hidden="true" />
+            <span className={css.badge} data-kind={host.auth}>{host.auth === 'key' ? tt('form.auth.key') : host.auth === 'password' ? tt('form.auth.password') : tt('form.auth.agent')}</span>
+            {host.tags.length > 0 && (
+              <>
+                <span className={css.dot} aria-hidden="true" />
+                <span>{host.tags.join(' · ')}</span>
+              </>
+            )}
+          </div>
+          {host.description !== undefined && host.description !== '' && (
+            <div className={css.hostDesc}>{host.description}</div>
           )}
-          {host.forwardAgent === true && (
-            <span className={css.badge} data-kind="forward-agent" title={tt('hosts.forwardAgentHint')}>{tt('hosts.forwardAgentBadge')}</span>
-          )}
-          <span className={css.hostSpacer} />
-          {test !== undefined && (
-            <span className={css.inlineTest} data-status={test.ok ? 'ok' : 'fail'}>
-              {test.ok ? tt('hosts.testOk', { latency: test.latencyMs ?? 0 }) : tt('hosts.testFail', { error: test.error ?? '' })}
-            </span>
-          )}
-          <button type="button" className={css.primaryButton} onClick={() => { onConnect(host.alias) }}>{tt('hosts.connected')}</button>
-        </div>
-        <div className={css.hostAddr}>
-          <span className={css.mono}>{host.host}:{host.port}</span>
-          {host.mac !== undefined && (
-            <span className={css.hostMac}>
-              <span className={css.hostMacLabel}>{tt('hosts.col.mac')}</span>
-              {host.mac}
-            </span>
-          )}
-        </div>
-        <div className={css.hostMeta}>
-          <span>{host.user}</span>
-          <span className={css.dot} aria-hidden="true" />
-          <span className={css.badge} data-kind={host.auth}>{host.auth === 'key' ? tt('form.auth.key') : host.auth === 'password' ? tt('form.auth.password') : tt('form.auth.agent')}</span>
-          {host.tags.length > 0 && (
-            <>
-              <span className={css.dot} aria-hidden="true" />
-              <span>{host.tags.join(' · ')}</span>
-            </>
-          )}
-        </div>
-        {host.description !== undefined && host.description !== '' && (
-          <div className={css.hostDesc}>{host.description}</div>
-        )}
-        <div className={css.hostActions}>
-          <button type="button" className={css.linkButton} disabled={testingAlias === host.alias} onClick={() => { void runTest(host.alias) }}>
-            {testingAlias === host.alias ? tt('hosts.testing') : tt('hosts.test')}
-          </button>
-          {testingAlias === host.alias && <span className={css.spinner} aria-hidden="true" />}
-          <button type="button" className={css.linkButton} onClick={() => { setDialog({ mode: 'edit', host }) }}>{tt('hosts.edit')}</button>
-          <button type="button" className={css.linkButton} data-danger onClick={() => { void deleteHost(host.alias) }}>{tt('hosts.delete')}</button>
+          <div className={css.hostActions}>
+            <button type="button" className={css.linkButton} disabled={testingAlias === host.alias} onClick={() => { void runTest(host.alias) }}>
+              {testingAlias === host.alias ? tt('hosts.testing') : tt('hosts.test')}
+            </button>
+            {testingAlias === host.alias && <span className={css.spinner} aria-hidden="true" />}
+            <button type="button" className={css.linkButton} onClick={() => { setDialog({ mode: 'edit', host }) }}>{tt('hosts.edit')}</button>
+            <button type="button" className={css.linkButton} data-danger onClick={() => { void deleteHost(host.alias) }}>{tt('hosts.delete')}</button>
+          </div>
         </div>
       </li>
     )

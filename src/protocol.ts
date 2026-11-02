@@ -244,6 +244,8 @@ export const SSH_API_BASE = '/api/dsh-ssh' as const
 
 export const SSH_API = {
   hosts: SSH_API_BASE + '/hosts',
+  reorder: SSH_API_BASE + '/hosts/reorder',
+  disconnect: SSH_API_BASE + '/hosts/disconnect',
   importSshConfig: SSH_API_BASE + '/hosts/import-ssh-config',
   test: SSH_API_BASE + '/test',
   exec: SSH_API_BASE + '/exec',

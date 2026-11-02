@@ -328,6 +328,33 @@ export class HostStore {
   }
 
   /**
+   * Store the list in the given order (drag-and-drop in the panel).
+   *
+   * Aliases the caller does not mention keep their relative order after the
+   * mentioned ones, and unknown aliases are ignored: the panel can reorder a
+   * filtered view without ever dropping a record it did not display.
+   * @param aliases - aliases in their new order.
+   * @returns the stored entries in the persisted order.
+   */
+  reorder(aliases: string[]): SshHostEntry[] {
+    const file = this.load()
+    const pending = new Map(file.hosts.map(entry => [entry.alias, entry]))
+    const ordered: SshHostEntry[] = []
+    for (const alias of aliases) {
+      const entry = pending.get(alias)
+      if (entry === undefined) continue
+      pending.delete(alias)
+      ordered.push(entry)
+    }
+    for (const entry of file.hosts) {
+      if (pending.delete(entry.alias)) ordered.push(entry)
+    }
+    file.hosts = ordered
+    this.save(file)
+    return ordered
+  }
+
+  /**
    * Import hosts from `~/.ssh/config`: Host blocks with a single non-wildcard
    * pattern become entries (a missing HostName falls back to the pattern
    * itself; key auth via IdentityFile; jump hosts via ProxyJump; ProxyCommand

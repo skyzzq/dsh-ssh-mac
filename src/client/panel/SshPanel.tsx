@@ -12,7 +12,7 @@ import { useCallback, useSyncExternalStore } from 'react'
 import type { SshApi } from '../api.ts'
 import type { PanelController, SshTab } from './controller.ts'
 import { tt, type TerminalFontSource } from './helpers.ts'
-import { RhineWordmark } from './rhine.tsx'
+import { RhineMark } from './rhine.tsx'
 import { ClusterTab } from './ClusterTab.tsx'
 import { HostsTab } from './HostsTab.tsx'
 import { TerminalTab } from './TerminalTab.tsx'
@@ -46,19 +46,9 @@ export function SshPanel({ controller, api, terminalFont }: SshPanelProps) {
     useCallback(() => controller.getSnapshot(), [controller]),
   )
 
-  const activeLabel = TABS.find(tab => tab.id === activeTab)?.label() ?? ''
 
   return (
     <div className={css.panel} data-dsh-plugin="ssh">
-      {/* Identity strip (RhineLab language): brand mark, wordmark, and one
-          status light beside the active tab name. */}
-      <div className={css.brandRow}>
-        <RhineWordmark />
-        <span className={css.brandMeta}>
-          <span className={css.statusLight} aria-hidden="true" />
-          {activeLabel}
-        </span>
-      </div>
       <div className={css.panelHeader}>
         {/* Shared hook: dsh-web-all offsets center-view back controls beside the collapsed mobile sidebar. */}
         <button
@@ -71,7 +61,10 @@ export function SshPanel({ controller, api, terminalFont }: SshPanelProps) {
           <span aria-hidden="true">‹</span>
           <span>{tt('panel.backToConversation')}</span>
         </button>
-        <h2 className={css.panelTitle}>{tt('panel.title')}</h2>
+        <h2 className={css.panelTitle}>
+          <span className={css.panelMark} aria-hidden="true"><RhineMark size={14} /></span>
+          <span>{tt('panel.title')}</span>
+        </h2>
       </div>
       <div className={css.tabBar} role="tablist" data-dsh-part="tab-bar">
         {TABS.map(tab => (

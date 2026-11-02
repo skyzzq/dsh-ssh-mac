@@ -85,6 +85,11 @@ export interface PanelControllerSnapshot {
   terminalTabs: readonly TerminalTabRecord[]
   /** The tab the single xterm is bound to, or undefined when there is none. */
   activeTerminalTabId: string | undefined
+  /**
+   * Tabs shown side by side in the terminal view, in display order. The active
+   * tab is always one of them; the rest were added by hand.
+   */
+  panes: readonly string[]
   /** Host picked in the terminal toolbar; the next tab opens on it. */
   draftAlias: string
 }
@@ -110,6 +115,12 @@ export interface PanelControllerDeps {
 const MAX_RETAINED_BYTES = 256 * 1024
 
 /**
+ * How many terminals may sit side by side. Beyond this the panes get too
+ * narrow to read a shell, and the strip already tracks every tab.
+ */
+export const MAX_PANES = 4
+
+/**
  * UTF-8 byte length of one chunk, without node's Buffer (this half is bundled
  * for the browser). Surrogate pairs count as the four bytes they encode to.
  * @param text - the output chunk.
@@ -130,6 +141,7 @@ export class PanelController {
   private activeTab: SshTab = 'hosts'
   private terminalTabs: readonly TerminalTabRecord[] = []
   private activeTerminalTabId: string | undefined
+  private panes: readonly string[] = []
   private draftAlias = ''
   private nextTerminalTabSeq = 0
   private listeners = new Set<() => void>()
@@ -151,6 +163,7 @@ export class PanelController {
     activeTab: 'hosts',
     terminalTabs: [],
     activeTerminalTabId: undefined,
+    panes: [],
     draftAlias: '',
   }
 
@@ -234,8 +247,56 @@ export class PanelController {
     this.activeTerminalTabId = id
     this.draftAlias = alias
     this.retainedScreens.delete(id)
+    this.panes = this.paneRow(this.panes, id)
     this.commit()
     return id
+  }
+
+  /**
+   * Show a tab beside the ones already displayed. The manual control behind
+   * "add this connected terminal to the row"; the active tab is always a pane,
+   * so calling it for that tab is a no-op.
+   * @param id - the tab id.
+   */
+  showTerminalPane(id: string): void {
+    if (this.terminalTab(id) === undefined) return
+    const next = this.paneRow(this.panes, id)
+    if (next.length === this.panes.length && next.every((pane, index) => pane === this.panes[index])) return
+    this.panes = next
+    this.commit()
+  }
+
+  /**
+   * Take one tab out of the row without touching its session: it keeps
+   * running in the strip, so it can be put back with `showTerminalPane`. When
+   * it was the active pane, the last remaining pane takes over.
+   * @param id - the tab id.
+   */
+  hideTerminalPane(id: string): void {
+    if (!this.panes.includes(id)) return
+    const next = this.panes.filter(pane => pane !== id)
+    this.panes = next
+    if (this.activeTerminalTabId === id) {
+      const fallback = next[next.length - 1]
+      this.activeTerminalTabId = fallback
+      const tab = fallback === undefined ? undefined : this.terminalTab(fallback)
+      if (tab !== undefined) this.draftAlias = tab.alias
+    }
+    this.commit()
+  }
+
+  /**
+   * The pane row, with closed tabs dropped and `id` appended when missing.
+   * A row that is already full gives up its oldest pane, so an explicit "show
+   * me this one" is never silently ignored.
+   * @param panes - the current pane row.
+   * @param id - the tab to ensure, when one is given.
+   */
+  private paneRow(panes: readonly string[], id?: string): readonly string[] {
+    const live = panes.filter(pane => this.terminalTab(pane) !== undefined)
+    if (id === undefined || live.includes(id)) return live
+    const next = [...live, id]
+    return next.length > MAX_PANES ? next.slice(next.length - MAX_PANES) : next
   }
 
   /**
@@ -249,6 +310,8 @@ export class PanelController {
     if (tab === undefined) return
     this.activeTerminalTabId = id
     this.draftAlias = tab.alias
+    // Selecting a tab is also how a background tab is brought into the row.
+    this.panes = this.paneRow(this.panes, id)
     this.commit()
   }
 
@@ -270,10 +333,14 @@ export class PanelController {
     if (index < 0) return
     const wasActive = this.activeTerminalTabId === id
     this.terminalTabs = this.terminalTabs.filter(tab => tab.id !== id)
+    this.panes = this.panes.filter(pane => pane !== id)
     if (wasActive) {
       const neighbour = this.terminalTabs[index] ?? this.terminalTabs[index - 1]
       this.activeTerminalTabId = neighbour?.id
-      if (neighbour !== undefined) this.draftAlias = neighbour.alias
+      if (neighbour !== undefined) {
+        this.draftAlias = neighbour.alias
+        this.panes = this.paneRow(this.panes, neighbour.id)
+      }
     }
     this.commit()
   }
@@ -490,6 +557,7 @@ export class PanelController {
       activeTab: this.activeTab,
       terminalTabs: this.terminalTabs,
       activeTerminalTabId: this.activeTerminalTabId,
+      panes: this.panes,
       draftAlias: this.draftAlias,
     }
     for (const fn of [...this.listeners]) fn()

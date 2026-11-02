@@ -158,6 +158,46 @@ const maxUploadBytes = deps.maxUploadBytes ?? MAX_UPLOAD_BYTES
     },
     {
       kind: 'exact',
+      path: SSH_API.reorder,
+      handler: async (req, res) => {
+        if (!guard(req, res, 'POST')) return
+        const body = (await readJsonBody(req)) as { aliases?: unknown } | null
+        // The order is a list of aliases; anything else would reorder by
+        // accident, so reject it rather than coerce.
+        if (body === null || !Array.isArray(body.aliases) || body.aliases.some(alias => typeof alias !== 'string')) {
+          writeJson(res, 400, { error: 'body must be {"aliases": string[]}' })
+          return
+        }
+        try {
+          store.reorder(body.aliases as string[])
+          writeJson(res, 200, { hosts: store.list().map(entry => store.summarize(entry)) })
+        } catch (error) {
+          writeJson(res, 400, { error: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    },
+    {
+      kind: 'exact',
+      path: SSH_API.disconnect,
+      handler: async (req, res) => {
+        if (!guard(req, res, 'POST')) return
+        const body = (await readJsonBody(req)) as { alias?: unknown } | null
+        // Ending a connection is not deleting a record: the alias must still
+        // exist, and only the pooled chain is dropped.
+        if (body === null || typeof body.alias !== 'string' || body.alias === '') {
+          writeJson(res, 400, { error: 'body must be {"alias": string}' })
+          return
+        }
+        try {
+          engine.dropAlias(body.alias)
+          writeJson(res, 200, { ok: true })
+        } catch (error) {
+          writeJson(res, 400, { error: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    },
+    {
+      kind: 'exact',
       path: SSH_API.importSshConfig,
       handler: async (req, res) => {
         if (!guard(req, res, 'POST')) return

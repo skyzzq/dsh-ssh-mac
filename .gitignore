@@ -4,3 +4,4 @@ scratch/*.bak
 *.bak-*
 *.log
 .DS_Store
+.verify-panes.mjs

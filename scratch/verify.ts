@@ -101,6 +101,14 @@ ok('seed: public host gets no MAC', remote.mac === undefined, String(remote.mac)
 // 10. The stored file round-trips the seeded MAC.
 const reopened = new HostStore(join(dir, 'hosts.json'), join(dir, 'missing-config'))
 ok('store: seeded MAC persisted', reopened.find('seeded')?.mac === '20:bd:1d:28:be:d2', String(reopened.find('seeded')?.mac))
+
+// 11. Reorder: mentioned aliases lead, the rest keep their order, unknown ones
+// are ignored, and a partial list never drops a record.
+const ordered = reopened.reorder(['ghost', 'remote']).map(entry => entry.alias)
+ok('store: reorder leads with the mentioned alias', ordered.join(',') === 'remote,seeded', ordered.join(','))
+const restored = reopened.reorder(['seeded', 'remote']).map(entry => entry.alias)
+ok('store: reorder persists', restored.join(',') === 'seeded,remote', restored.join(','))
+ok('store: reorder keeps every record', new HostStore(join(dir, 'hosts.json'), join(dir, 'missing-config')).list().length === 2, String(reopened.list().length))
 writeFileSync(join(dir, 'ignore.txt'), readdirSync(dir).join(','))
 
 // 11. An encrypted key is recognised before ssh2 chokes on it.
