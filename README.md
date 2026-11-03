@@ -89,3 +89,5 @@ profile 的 `ssh-mac` 行 config：
 ## 基于 dsh-ssh 二次开发
 
 本插件是 [`@linxin666/dsh-ssh`](https://www.npmjs.com/package/@linxin666/dsh-ssh) 源码的二次开发，两者不能同时启用。
+
+上游的合入点只有两处：`src/engine/connection-pool.ts` 的建链函数，以及新增的 `src/mac/`。当前跟随到上游 0.4.14——该版本相对 0.4.12 没有代码改动，只加了 `locale/{zh,en}.json` 里的插件元数据（`meta.title` / `meta.description`），这部分已按本插件自己的描述重写。

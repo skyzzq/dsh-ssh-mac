@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SSH",
+    "description": "SSH plugin that resolves a host by its NIC MAC address before dialing; run commands, transfer files and open terminals."
+  }
+}

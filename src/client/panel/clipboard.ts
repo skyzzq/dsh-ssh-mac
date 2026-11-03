@@ -8,17 +8,45 @@
  * still work rather than failing silently.
  */
 
-/** Read plain text from the system clipboard. */
-export async function readClipboardText(): Promise<string> {
+/**
+ * Read plain text from the system clipboard.
+ *
+ * Resolves to the text, to `''` when the clipboard really is empty, and to
+ * `undefined` when the browser refused to hand it over (no clipboard-read
+ * permission, document not focused). Callers can then tell "nothing to paste"
+ * apart from "paste is blocked here" instead of blaming an empty clipboard.
+ */
+export async function readClipboardText(): Promise<string | undefined> {
   const clipboard = navigator.clipboard
   if (clipboard !== undefined && typeof clipboard.readText === 'function') {
     try {
       return await clipboard.readText()
     } catch {
-      // Permission or focus refused it; try the legacy path below.
+      // Permission or focus refused it; try the execCommand bridge below.
     }
   }
-  return ''
+  return readViaExecCommand()
+}
+
+/** Legacy clipboard read: a focused textarea plus `document.execCommand('paste')`. */
+function readViaExecCommand(): string | undefined {
+  if (typeof document === 'undefined') return undefined
+  const area = document.createElement('textarea')
+  area.setAttribute('readonly', 'true')
+  area.style.position = 'fixed'
+  area.style.top = '-1000px'
+  area.style.opacity = '0'
+  document.body.appendChild(area)
+  area.focus()
+  area.select()
+  let text: string | undefined
+  try {
+    text = document.execCommand('paste') ? area.value : undefined
+  } catch {
+    text = undefined
+  }
+  area.remove()
+  return text
 }
 
 /** Write plain text to the system clipboard, returning whether it landed. */

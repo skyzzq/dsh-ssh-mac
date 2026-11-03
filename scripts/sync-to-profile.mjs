@@ -24,5 +24,6 @@ for (const file of ['package.json', 'cordis.patch.yml', 'README.md']) {
   if (existsSync(join(root, file))) cpSync(join(root, file), join(target, file))
 }
 cpSync(join(root, 'lib'), join(target, 'lib'), { recursive: true })
+if (existsSync(join(root, 'locale'))) cpSync(join(root, 'locale'), join(target, 'locale'), { recursive: true })
 
 console.log('synced ->', target)

@@ -83,8 +83,16 @@ export function TerminalPane({ api, controller, tab, active, canRemove, onFocus,
     const term = termRef.current
     if (term === null) return
     const text = await readClipboardText()
+    if (text === undefined) {
+      // The browser refused the read: say so, and leave the native Ctrl+V
+      // route (a paste event carries the text without any permission) open.
+      flash(tt('terminal.pasteDenied'))
+      term.focus()
+      return
+    }
     if (text === '') {
       flash(tt('terminal.pasteEmpty'))
+      term.focus()
       return
     }
     // term.paste keeps bracketed-paste framing, so multi-line text cannot
@@ -122,12 +130,13 @@ export function TerminalPane({ api, controller, tab, active, canRemove, onFocus,
       if (event.type !== 'keydown') return true
       const key = event.key.toLowerCase()
       if (event.ctrlKey && event.shiftKey && key === 'c') { void doCopy(); return false }
-      if (event.ctrlKey && event.shiftKey && key === 'v') { void doPaste(); return false }
       if (event.ctrlKey && key === 'insert') { void doCopy(); return false }
-      if (event.shiftKey && key === 'insert') { void doPaste(); return false }
-      // Windows-terminal habit: Ctrl+V pastes, Ctrl+C only copies when there
-      // is a selection and otherwise keeps sending SIGINT.
-      if (event.ctrlKey && !event.shiftKey && !event.altKey && key === 'v') { void doPaste(); return false }
+      // Every paste chord (Ctrl+V, Ctrl+Shift+V, Shift+Insert, the context menu)
+      // is left to the browser: on a textarea it produces one paste event that
+      // xterm turns into one chunk of data. Handing it ourselves as well pasted
+      // the text twice, because returning false only skips xterm's key handler —
+      // it does not cancel the default action.
+      // Ctrl+C only copies when there is a selection; otherwise it stays SIGINT.
       if (event.ctrlKey && !event.shiftKey && !event.altKey && key === 'c' && term.hasSelection()) {
         void doCopy()
         return false
@@ -313,15 +322,36 @@ export function TerminalPane({ api, controller, tab, active, canRemove, onFocus,
         onFocus(tab.id)
         setMenu({ x: event.clientX, y: event.clientY })
       }}
+      onPaste={event => {
+        const target = event.target as HTMLElement | null
+        // A paste inside the xterm textarea is already turned into data by the
+        // terminal; handle only the ones that landed on the pane itself.
+        if (target !== null && target.closest('.xterm') !== null) return
+        const text = event.clipboardData?.getData('text') ?? ''
+        const term = termRef.current
+        if (text === '' || term === null) return
+        event.preventDefault()
+        term.paste(text)
+        term.focus()
+        flash(tt('terminal.pasted').replace('{count}', String(text.length)))
+      }}
       onKeyDownCapture={event => {
         // Focus drifted off the xterm textarea (pane chrome, auth form): send
         // the key to the shell instead of letting the browser move focus, so
         // Tab still completes a path wherever the caret looks like it is.
+        const target = event.target as HTMLElement | null
+        const insideTerm = target !== null && target.closest('.xterm') !== null
+        if (!insideTerm && event.ctrlKey && event.shiftKey) {
+          // Neither chord has a native meaning here, and the xterm-level
+          // handler only fires while its hidden textarea owns the focus.
+          const chord = event.key.toLowerCase()
+          if (chord === 'v') { event.preventDefault(); void doPaste(); return }
+          if (chord === 'c') { event.preventDefault(); void doCopy(); return }
+        }
         if (event.key !== 'Tab') return
         const term = termRef.current
         if (term === null) return
-        const target = event.target as HTMLElement | null
-        if (target !== null && target.closest('.xterm') !== null) return
+        if (insideTerm) return
         // Buttons and form fields keep normal Tab order: only the bare pane
         // background hands the key to the shell.
         if (target !== null && target.closest('button, input, textarea, select, a') !== null) return
