@@ -47,8 +47,8 @@ const entry = `url: ${slug}
 name: ${owner}/${repo}
 category: remote
 description:
-  en: Resolves an SSH host by its NIC MAC address before dialing, so DHCP address changes stop breaking saved hosts.
-  zh: 建链前先按网卡 MAC 把主机解析成当前 IP，DHCP 换号不用改配置。
+  en: MAC-first SSH plugin with dynamic MAC resolution, multi-terminal lists, and resizable floating window.
+  zh: 基于网卡 MAC 动态寻址建链的 SSH 增强插件，支持多终端列表分屏与可调节大小独立浮窗。
 tarball: https://github.com/${owner}/${repo}/releases/latest/download/dsh-ssh-mac.tgz
 `
 writeFileSync(join(entryDir, `awesome-entry-${owner}__${repo}.yml`), entry)

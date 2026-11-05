@@ -64,5 +64,58 @@ const spare = controller.getSnapshot().panes[0] as string
 controller.closeTerminalTab(spare)
 ok('panes: closing a background pane drops it', !controller.getSnapshot().panes.includes(spare), row())
 
+// 9. Floating window transitions and state preservation
+let requestedPanel: string | null = 'not-called'
+const navFace = {
+  select(panelId: string | null) {
+    requestedPanel = panelId
+  },
+}
+const floatCtrl = new PanelController({ panel: navFace })
+
+floatCtrl.open()
+ok('float: initial docked panel open', floatCtrl.getSnapshot().panelOpen && !floatCtrl.getSnapshot().isFloating)
+ok('float: nav selects ssh panel', requestedPanel === 'ssh')
+
+floatCtrl.openFloat()
+ok('float: openFloat sets isFloating', floatCtrl.getSnapshot().isFloating)
+ok('float: openFloat closes center column panel', !floatCtrl.getSnapshot().panelOpen)
+ok('float: nav releases center column to conversation', requestedPanel === null)
+
+floatCtrl.toggleMinimized()
+ok('float: toggleMinimized folds window', floatCtrl.getSnapshot().isMinimized)
+
+floatCtrl.focusFloat()
+ok('float: focusFloat unfolds minimized window', !floatCtrl.getSnapshot().isMinimized)
+ok('float: focusFloat increments tick', floatCtrl.getFocusTick() > 0)
+
+floatCtrl.dock()
+ok('float: dock restores docked panel', floatCtrl.getSnapshot().panelOpen && !floatCtrl.getSnapshot().isFloating)
+ok('float: dock selects ssh panel in layout', requestedPanel === 'ssh')
+
+floatCtrl.openFloat()
+ok('float: pinned default is true', floatCtrl.getSnapshot().isPinned)
+ok('float: not hidden by default', !floatCtrl.getSnapshot().isFloatHidden)
+
+// Pinned mode: hideFloatUnderDsh is ignored
+floatCtrl.hideFloatUnderDsh()
+ok('float: pinned mode ignores hideFloatUnderDsh', !floatCtrl.getSnapshot().isFloatHidden)
+
+// Unpinned mode ("不常浮"): clicking DSH main interface hides it under DSH
+floatCtrl.togglePinned()
+ok('float: togglePinned switches to unpinned', !floatCtrl.getSnapshot().isPinned)
+
+floatCtrl.hideFloatUnderDsh()
+ok('float: unpinned mode hides under DSH', floatCtrl.getSnapshot().isFloatHidden)
+
+// Clicking left sidebar SSH icon summons it back out and leaves conversation in center view
+requestedPanel = 'something-else'
+floatCtrl.syncPanelSelection('ssh')
+ok('float: sidebar click summons floating window', !floatCtrl.getSnapshot().isFloatHidden)
+ok('float: sidebar click keeps center view on conversation', requestedPanel === null)
+
+floatCtrl.closeFloat()
+ok('float: closeFloat exits floating mode', !floatCtrl.getSnapshot().isFloating)
+
 console.log(failed === 0 ? 'ALL PANE PROBES PASSED' : `${failed} PANE PROBE(S) FAILED`)
 if (failed > 0) process.exit(1)

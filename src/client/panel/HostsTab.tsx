@@ -9,6 +9,7 @@ import type { ImportSkipBlock, ImportSkipReason, SshHostSummary, TestResult } fr
 import type { SshKey } from '../locales.ts'
 import { errorMessage, tt } from './helpers.ts'
 import { HostFormDialog } from './HostFormDialog.tsx'
+import { formatEndpoint } from '../../mac/net-format.ts'
 import css from './panel.module.css'
 
 /** Hosts tab props. */
@@ -301,7 +302,7 @@ export function HostsTab({ api, onConnect }: HostsTabProps) {
             <button type="button" className={css.primaryButton} onClick={() => { onConnect(host.alias) }}>{tt('hosts.connected')}</button>
           </div>
           <div className={css.hostAddr}>
-            <span className={css.mono}>{host.host}:{host.port}</span>
+            <span className={css.mono}>{formatEndpoint(host.host, host.port)}</span>
             {host.mac !== undefined && (
               <span className={css.hostMac}>
                 <span className={css.hostMacLabel}>{tt('hosts.col.mac')}</span>

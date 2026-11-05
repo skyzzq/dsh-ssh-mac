@@ -139,3 +139,13 @@ const first = await resolveMacTarget(unreachable, { ...opts, sweepTimeoutMs: 200
 const second = await resolveMacTarget(unreachable, { ...opts, sweepTimeoutMs: 200 })
 ok('resolve: failure is cached', second.durationMs < first.durationMs && (second.note ?? '').includes('recent resolution failed'), String(second.note))
 
+
+// IPv6 link-local: the LAN may stop handing out IPv4 leases entirely.
+const { isIpv6Address, isLinkLocalIpv6, formatEndpoint, splitZone } = await import('../src/mac/net-format.ts')
+ok('ipv6: zone-qualified literal detected', isIpv6Address('fe80::1%2') === true, 'fe80::1%2')
+ok('ipv6: dotted quad is not v6', isIpv6Address('10.147.1.5') === false)
+ok('ipv6: link-local recognised', isLinkLocalIpv6('fe80::a0e9:d0f6:5d17:8e68%2') === true)
+ok('ipv6: global address rejected', isLinkLocalIpv6('2001:db8::1') === false)
+ok('ipv6: zone split', splitZone('fe80::1%12').zone === '12', String(splitZone('fe80::1%12').zone))
+ok('ipv6: endpoint bracketed', formatEndpoint('fe80::1%2', 22) === '[fe80::1%2]:22', formatEndpoint('fe80::1%2', 22))
+ok('ipv6: v4 endpoint unchanged', formatEndpoint('10.147.1.227', 22) === '10.147.1.227:22')

@@ -1,7 +1,7 @@
 {
   "name": "dsh-ssh-mac",
-  "description": "MAC-first SSH plugin for DeepSeek Harness: resolves a host by NIC address before dialing",
-  "version": "1.4.0",
+  "description": "MAC-first SSH plugin for DeepSeek Harness: MAC resolution, multi-terminal lists, and resizable floating window",
+  "version": "1.6.0",
   "type": "module",
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

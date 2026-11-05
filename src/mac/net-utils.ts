@@ -5,6 +5,7 @@
  */
 
 import { networkInterfaces } from 'node:os'
+import { formatEndpoint, isIpv6Address, isLinkLocalIpv6, splitZone } from './net-format.ts'
 
 /** One of the machine's own IPv4 networks. */
 export interface LocalIpv4Network {
@@ -149,3 +150,16 @@ export function cidrHosts(cidr: string, cap = 2048): string[] {
   for (let value = first; value <= last && hosts.length < cap; value += 1) hosts.push(intToIpv4(value))
   return hosts
 }
+
+/**
+ * Whether a LAN sweep or neighbour lookup can reach this recorded address at
+ * all: a private IPv4 address or an IPv6 link-local one. A public address is
+ * reached across the internet, where no hardware address is observable.
+ * @param host - recorded address.
+ */
+export function isLocalDialAddress(host: string): boolean {
+  if (isIpv6Address(host)) return isLinkLocalIpv6(host)
+  return isPrivateIpv4(host)
+}
+
+export { formatEndpoint, isIpv6Address, isLinkLocalIpv6, splitZone }

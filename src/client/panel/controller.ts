@@ -79,6 +79,14 @@ export type TerminalLinkIntent = 'detach' | 'close'
 export interface PanelControllerSnapshot {
   /** Whether the center column shows this panel. */
   panelOpen: boolean
+  /** Whether the panel is displayed as a floating window over the application. */
+  isFloating: boolean
+  /** Whether the floating window is folded/minimized to its title bar. */
+  isMinimized: boolean
+  /** Whether the floating window stays permanently on top of the application. */
+  isPinned: boolean
+  /** Whether the floating window is currently hidden under DSH after clicking main app interface. */
+  isFloatHidden: boolean
   /** The tab the panel is showing. */
   activeTab: SshTab
   /** Every terminal tab, in strip order. */
@@ -138,6 +146,11 @@ function utf8Bytes(text: string): number {
 /** The panel state owner the sidebar row and the view both read. */
 export class PanelController {
   private panelOpen = false
+  private isFloating = false
+  private isMinimized = false
+  private isPinned = true
+  private isFloatHidden = false
+  private focusTick = 0
   private activeTab: SshTab = 'hosts'
   private terminalTabs: readonly TerminalTabRecord[] = []
   private activeTerminalTabId: string | undefined
@@ -160,6 +173,10 @@ export class PanelController {
   /** Cached so getSnapshot is referentially stable between changes. */
   private snapshot: PanelControllerSnapshot = {
     panelOpen: false,
+    isFloating: false,
+    isMinimized: false,
+    isPinned: true,
+    isFloatHidden: false,
     activeTab: 'hosts',
     terminalTabs: [],
     activeTerminalTabId: undefined,
@@ -205,12 +222,120 @@ export class PanelController {
   }
 
   /**
+   * Open the panel as a floating window.
+   * By default hands the center column back to the conversation so the user can
+   * work with the floating panel on top of the chat view.
+   */
+  openFloat(): void {
+    if (this.isFloating) {
+      this.summonFloat()
+      return
+    }
+    this.isFloating = true
+    this.isFloatHidden = false
+    this.isMinimized = false
+    this.panelOpen = false
+    this.commit()
+    this.selectPanel(null)
+  }
+
+  /** Close the floating window. */
+  closeFloat(): void {
+    if (!this.isFloating) return
+    this.isFloating = false
+    this.isFloatHidden = false
+    this.commit()
+  }
+
+  /** Set floating state explicitly. */
+  setFloating(floating: boolean): void {
+    if (floating) this.openFloat()
+    else this.closeFloat()
+  }
+
+  /** Restore the floating window back into the center-column page. */
+  dock(): void {
+    this.isFloating = false
+    this.isFloatHidden = false
+    this.isMinimized = false
+    this.open()
+  }
+
+  /** Toggle whether the floating window is folded/minimized to titlebar. */
+  toggleMinimized(): void {
+    this.isMinimized = !this.isMinimized
+    this.commit()
+  }
+
+  /** Set whether the floating window is folded/minimized. */
+  setMinimized(minimized: boolean): void {
+    if (this.isMinimized === minimized) return
+    this.isMinimized = minimized
+    this.commit()
+  }
+
+  /** Toggle whether the floating window stays permanently on top. */
+  togglePinned(): void {
+    this.setPinned(!this.isPinned)
+  }
+
+  /** Set pinned (always on top) state. */
+  setPinned(pinned: boolean): void {
+    if (this.isPinned === pinned) return
+    this.isPinned = pinned
+    if (pinned) {
+      this.isFloatHidden = false
+    }
+    this.commit()
+  }
+
+  /**
+   * Hide the floating window when user clicks DSH's main interface (in unpinned mode).
+   * It floats underneath DSH and is hidden until summoned again.
+   */
+  hideFloatUnderDsh(): void {
+    if (!this.isFloating || this.isPinned || this.isFloatHidden) return
+    this.isFloatHidden = true
+    this.commit()
+  }
+
+  /**
+   * Summon the floating window back to the front (e.g. user clicked left sidebar SSH icon).
+   * Unhides the window, unfolds if minimized, and keeps the conversation in the center view.
+   */
+  summonFloat(): void {
+    if (!this.isFloating) {
+      this.openFloat()
+      return
+    }
+    this.isFloatHidden = false
+    if (this.isMinimized) this.isMinimized = false
+    this.focusTick += 1
+    this.commit()
+    this.selectPanel(null)
+  }
+
+  /** Request focus / highlight attention to the floating window. */
+  focusFloat(): void {
+    this.summonFloat()
+  }
+
+  getFocusTick(): number {
+    return this.focusTick
+  }
+
+  /**
    * Reflect a selection made outside this controller (the user clicked another
    * sidebar row, or the layout dropped the panel id).
    * @param panelId - the layout's current panel id, or null for the conversation.
    */
   syncPanelSelection(panelId: string | null): void {
     const open = panelId === SSH_PANEL_ID
+    if (open && this.isFloating) {
+      // User clicked the left sidebar SSH icon while floating: summon the window!
+      this.summonFloat()
+      return
+    }
     if (open === this.panelOpen) return
     this.panelOpen = open
     this.commit()
@@ -554,6 +679,10 @@ export class PanelController {
   private commit(): void {
     this.snapshot = {
       panelOpen: this.panelOpen,
+      isFloating: this.isFloating,
+      isMinimized: this.isMinimized,
+      isPinned: this.isPinned,
+      isFloatHidden: this.isFloatHidden,
       activeTab: this.activeTab,
       terminalTabs: this.terminalTabs,
       activeTerminalTabId: this.activeTerminalTabId,

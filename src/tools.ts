@@ -10,6 +10,7 @@ import type { SshEngine } from './engine.ts'
 import type { ClusterResult, ExecResult, SshAuthKind, SshHostEntry, SshHostSummary, TunnelInfo } from './protocol.ts'
 import { invalidateMacCache, resolveMacTarget, type MacOptions, type MacSource } from './mac/resolve.ts'
 import { sanitizeMac } from './mac/mac-address.ts'
+import { formatEndpoint } from './mac/net-utils.ts'
 import { mapLimit } from './mac/probe.ts'
 
 /** One text content block (the only render shape these tools emit). */
@@ -53,11 +54,10 @@ function renderHosts(hosts: AgentHostRow[]): string {
   if (hosts.length === 0) return 'no hosts configured'
   const rows = hosts.map(host => [
     host.alias,
-    host.host,
+    formatEndpoint(host.host, host.port),
     // The MAC is the identity the connect resolves to an address; showing it
     // next to the configured address is how a user sees a stale record.
     host.mac ?? '-',
-    String(host.port),
     host.user,
     host.auth,
     host.proxyJump.length > 0 ? 'jump:' + host.proxyJump.join(',') : host.proxyCommandConfigured ? 'proxy-command' : '-',
@@ -68,7 +68,7 @@ function renderHosts(hosts: AgentHostRow[]): string {
     (host.tags.length > 0 ? host.tags.join(',') : '-'),
     host.description ?? '',
   ].join(' | '))
-  return ['alias | host | mac | port | user | auth | proxy | forward | environment | tags | description', '--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---', ...rows].join('\n')
+  return ['alias | host | mac | user | auth | proxy | forward | environment | tags | description', '--- | --- | --- | --- | --- | --- | --- | --- | --- | ---', ...rows].join('\n')
 }
 
 /** Render one exec result (mirrors the bash-tool exit-code convention). */
@@ -238,7 +238,7 @@ export function sshMacTool(engine: SshEngine) {
                 host: { type: 'string', required: true },
                 source: {
                   type: 'string',
-                  enum: ['configured', 'cache', 'neighbor', 'neighbor-probe', 'sweep', 'fallback'],
+                  enum: ['configured', 'cache', 'neighbor', 'neighbor-probe', 'neighbor6', 'sweep', 'fallback'],
                   required: true,
                 },
                 resolved: { type: 'boolean', required: true },

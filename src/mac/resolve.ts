@@ -10,9 +10,10 @@
  * ProxyJump / ProxyCommand / the host key alias keep working unchanged.
  */
 
-import { isPrivateIpv4, isSkippedIpv4, sweepCidrFor, cidrHosts, inCidr, localIpv4Networks } from './net-utils.ts'
+import { isPrivateIpv4, isSkippedIpv4, sweepCidrFor, cidrHosts, inCidr, localIpv4Networks, isIpv6Address, isLocalDialAddress } from './net-utils.ts'
 import { sanitizeMac } from './mac-address.ts'
 import { readNeighborTable, describe } from './neighbor.ts'
+import { readNeighborTable6 } from './neighbor6.ts'
 import { mapLimit, tcpProbe } from './probe.ts'
 
 /** Knobs for MAC-first resolution. */
@@ -61,7 +62,7 @@ export const MAC_DEFAULTS: MacOptions = {
 }
 
 /** Where a resolved address came from. */
-export type MacSource = 'configured' | 'cache' | 'neighbor' | 'neighbor-probe' | 'sweep' | 'fallback'
+export type MacSource = 'configured' | 'cache' | 'neighbor' | 'neighbor-probe' | 'neighbor6' | 'sweep' | 'fallback'
 
 /** One resolution outcome, reported to tools and logs. */
 export interface MacResolution {
@@ -134,8 +135,12 @@ export function invalidateMacCache(mac?: string): void {
   negativeCache.delete(mac)
 }
 
-/** Only private, non-link-local addresses may be adopted. */
+/**
+ * Only a LAN-reachable address may be adopted: a private IPv4 address, or an
+ * IPv6 link-local one on a LAN that stopped handing out IPv4 leases.
+ */
 function usableAddress(ip: string): boolean {
+  if (isIpv6Address(ip)) return isLocalDialAddress(ip)
   return isPrivateIpv4(ip) && !isSkippedIpv4(ip)
 }
 
@@ -169,6 +174,32 @@ async function sweepAddresses(addresses: readonly string[], opts: MacOptions): P
   } finally {
     clearTimeout(timer)
   }
+}
+
+/**
+ * Look a hardware address up in the IPv6 neighbour cache. This is the second
+ * lookup, not the first: an IPv4 LAN answers through ARP, while a LAN that
+ * switched to IPv6 link-local addresses only leaves ARP empty and keeps the
+ * hardware address here.
+ * @param mac - normalised hardware address.
+ * @param opts - resolution knobs.
+ * @param discover - ping the all-nodes multicast group first, which fills a
+ * cold neighbour cache on an otherwise silent LAN.
+ */
+async function resolveOverIpv6(
+  mac: string,
+  opts: MacOptions,
+  discover: boolean,
+): Promise<{ host?: string; candidates: string[]; note?: string }> {
+  const table = await readNeighborTable6({ discover })
+  const candidates = unique((table.byMac.get(mac) ?? []).map(entry => entry.ip).filter(usableAddress))
+  if (candidates.length === 1) return { host: candidates[0]!, candidates }
+  if (candidates.length > 1) {
+    const alive = await disambiguate(candidates, opts)
+    if (alive !== undefined) return { host: alive, candidates }
+    return { candidates, note: 'several IPv6 addresses shared the MAC and none answered uniquely' }
+  }
+  return { candidates, note: table.error }
 }
 
 /** One in-flight resolution, shared by every caller that needs the same MAC. */
@@ -240,6 +271,17 @@ async function resolveEntry(mac: string, configuredHost: string, opts: MacOption
     return done(configuredHost, 'fallback', false, 'several addresses shared the MAC and none answered uniquely')
   }
 
+  // Nothing in ARP. A LAN that switched to IPv6-only keeps the same hardware
+  // address in the neighbour discovery cache, so look there before paying for
+  // an IPv4 sweep of a subnet the machine may not even use any more.
+  const first6 = await resolveOverIpv6(mac, opts, false)
+  if (first6.host !== undefined) {
+    base.candidates = first6.candidates
+    resolvedCache.set(mac, { host: first6.host, at: Date.now(), ttlMs: opts.ttlMs })
+    negativeCache.delete(mac)
+    return done(first6.host, 'neighbor6', true, 'resolved through the IPv6 neighbour cache')
+  }
+
   const notes: string[] = []
   if (table.error !== undefined) notes.push(table.error)
 
@@ -251,9 +293,24 @@ async function resolveEntry(mac: string, configuredHost: string, opts: MacOption
   // A public recorded address means the machine is reached across the
   // internet, which no local-subnet sweep can see; sweeping would only add
   // seconds to every connect (MAC-SSH.md: "HostName 是公网则不扫").
-  if (!isPrivateIpv4(configuredHost)) {
+  if (!isLocalDialAddress(configuredHost)) {
     markFailed(mac, opts)
-    return done(configuredHost, 'fallback', false, ['recorded address ' + configuredHost + ' is not private', 'skipped the local sweep', ...notes].join('; '))
+    return done(configuredHost, 'fallback', false, ['recorded address ' + configuredHost + ' is not a LAN address', 'skipped the local sweep', ...notes].join('; '))
+  }
+
+  // A record that already points at an IPv6 link-local address has no IPv4
+  // subnet left to sweep: ping the all-nodes group so neighbour discovery
+  // rebuilds the cache, then look again.
+  if (isIpv6Address(configuredHost)) {
+    const deep6 = await resolveOverIpv6(mac, opts, true)
+    if (deep6.host !== undefined) {
+      base.candidates = deep6.candidates
+      resolvedCache.set(mac, { host: deep6.host, at: Date.now(), ttlMs: opts.ttlMs })
+      negativeCache.delete(mac)
+      return done(deep6.host, 'neighbor6', true, 'found after pinging the IPv6 all-nodes group')
+    }
+    markFailed(mac, opts)
+    return done(configuredHost, 'fallback', false, ['MAC not in the IPv6 neighbour cache', ...(deep6.note === undefined ? [] : [deep6.note]), ...notes].join('; '))
   }
 
   // Sweep: the machine's own networks bound the search. When the recorded
@@ -292,8 +349,19 @@ async function resolveEntry(mac: string, configuredHost: string, opts: MacOption
     }
   }
 
+  // Last look before giving up: ping the IPv6 all-nodes group, then read the
+  // neighbour discovery cache again. On an IPv6-only LAN this is the lookup
+  // that actually finds the machine.
+  const deep6 = await resolveOverIpv6(mac, opts, true)
+  if (deep6.host !== undefined) {
+    base.candidates = deep6.candidates
+    resolvedCache.set(mac, { host: deep6.host, at: Date.now(), ttlMs: opts.ttlMs })
+    negativeCache.delete(mac)
+    return done(deep6.host, 'neighbor6', true, 'found after pinging the IPv6 all-nodes group')
+  }
+
   markFailed(mac, opts)
-  return done(configuredHost, 'fallback', false, ['MAC not found on ' + windows.join(', '), ...notes].join('; '))
+  return done(configuredHost, 'fallback', false, ['MAC not found on ' + windows.join(', '), ...(deep6.note === undefined ? [] : [deep6.note]), ...notes].join('; '))
 }
 
 /**

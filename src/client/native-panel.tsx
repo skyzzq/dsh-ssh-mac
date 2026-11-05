@@ -20,6 +20,7 @@
  *
  * @module @linxin666/dsh-client-ssh/client
  */
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -27,6 +28,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type { SshApi } from './api.ts'
 import { SSH_PANEL_ID, type PanelController } from './panel/controller.ts'
 import { tt, type TerminalFontSource } from './panel/helpers.ts'
+import { RhineMark } from './panel/rhine.tsx'
+import { SshFloatingWindow } from './panel/SshFloatingWindow.tsx'
 import { SshPanel } from './panel/SshPanel.tsx'
 import css from './panel/panel.module.css'
 
@@ -81,6 +84,49 @@ export function SshPanelPage({ controller, api, terminalFont }: {
   api: SshApi
   terminalFont?: TerminalFontSource
 }): React.ReactElement {
+  const snapshot = useSyncExternalStore(
+    useCallback(listener => controller.subscribe(listener), [controller]),
+    useCallback(() => controller.getSnapshot(), [controller]),
+  )
+
+  useEffect(() => {
+    if (snapshot.isFloating) {
+      controller.summonFloat()
+    }
+  }, [snapshot.isFloating, controller])
+
+  if (snapshot.isFloating) {
+    return (
+      <div className={css.view} data-dsh-ssh-view="" data-dsh-plugin="ssh">
+        <div className={css.floatingPlaceholder}>
+          <div className={css.floatingPlaceholderCard}>
+            <div className={css.floatingPlaceholderMark}>
+              <RhineMark size={32} />
+            </div>
+            <h3 className={css.floatingPlaceholderTitle}>{tt('float.placeholderTitle')}</h3>
+            <p className={css.floatingPlaceholderDesc}>{tt('float.placeholderDesc')}</p>
+            <div className={css.floatingPlaceholderActions}>
+              <button
+                type="button"
+                className={css.primaryButton}
+                onClick={() => { controller.dock() }}
+              >
+                {tt('float.dockBack')}
+              </button>
+              <button
+                type="button"
+                className={css.ghostButton}
+                onClick={() => { controller.focusFloat() }}
+              >
+                {tt('float.focus')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={css.view} data-dsh-ssh-view="" data-dsh-plugin="ssh">
       <SshPanel controller={controller} api={api} terminalFont={terminalFont} />
@@ -134,6 +180,13 @@ export function registerSshPanel(
     key: SSH_PANEL_ID,
     inject: (): PanelFace => ({ controller, api, terminalFont }),
   }, SshPanelPage as never)))
+
+  disposers.push(slots.inject('shell.overlay', () => slots.register({
+    name: 'shell.overlay',
+    id: 'ssh-floating-window',
+    order: 100,
+    inject: (): PanelFace => ({ controller, api, terminalFont }),
+  }, SshFloatingWindow as never)))
 
   return () => {
     for (const dispose of disposers.splice(0)) dispose()

@@ -60,6 +60,7 @@ export const inject = ['slots', 'locale', 'configForms', 'layout']
 /** Type-only surface (export discipline: no value exports beyond the plugin contract). */
 export type { PanelControllerSnapshot } from './panel/controller.ts'
 export type { SshPanelProps } from './panel/SshPanel.tsx'
+export type { SshFloatingWindowProps } from './panel/SshFloatingWindow.tsx'
 export type { HostsTabProps } from './panel/HostsTab.tsx'
 export type { HostFormDialogProps } from './panel/HostFormDialog.tsx'
 export type { TerminalTabProps } from './panel/TerminalTab.tsx'

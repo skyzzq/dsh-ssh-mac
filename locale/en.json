@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "SSH",
-    "description": "SSH plugin that resolves a host by its NIC MAC address before dialing; run commands, transfer files and open terminals."
+    "description": "Enhanced SSH plugin for DeepSeek Harness with MAC-first dialing, multi-pane terminal lists, and resizable floating window support."
   }
 }
