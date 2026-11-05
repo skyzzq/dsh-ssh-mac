@@ -24,7 +24,18 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const API = 'https://api.github.com'
 const UPSTREAM = 'awesome-dsh-plugin/awesome-dsh-plugin'
-const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
+let token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN
+if (!token) {
+  try {
+    const cred = execFileSync('git', ['credential', 'fill'], {
+      input: 'protocol=https\nhost=github.com\n\n',
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
+    const m = cred.match(/^password=(.*)$/m)
+    if (m && m[1]) token = m[1].trim()
+  } catch {}
+}
 const repoName = 'dsh-ssh-mac'
 const sshUrl = `git@github.com:${process.argv[process.argv.indexOf('--owner') + 1] ?? 'skyzzq'}/${repoName}.git`
 
@@ -139,13 +150,22 @@ console.log('topic dsh-plugin set')
 const tag = `v${manifest.version}`
 const tarball = join(root, 'release', 'dsh-ssh-mac.tgz')
 let release = await api('GET', `/repos/${owner}/${repoName}/releases/tags/${tag}`)
+const readmeLines = readFileSync(join(root, 'README.md'), 'utf8').split('\n')
+const releaseBody = readmeLines.slice(0, 39).join('\n')
 if (!release) {
   release = await api('POST', `/repos/${owner}/${repoName}/releases`, {
     tag_name: tag,
     name: tag,
-    body: readFileSync(join(root, 'README.md'), 'utf8').split('\n').slice(0, 12).join('\n'),
+    body: releaseBody,
+    make_latest: 'true',
   })
   console.log(`release ${tag} created`)
+} else {
+  await api('PATCH', `/repos/${owner}/${repoName}/releases/${release.id}`, {
+    make_latest: 'true',
+    body: releaseBody,
+  })
+  console.log(`release ${tag} updated to latest`)
 }
 if (existsSync(tarball) && !(release.assets ?? []).some(asset => asset.name === 'dsh-ssh-mac.tgz')) {
   const upload = await fetch(`https://uploads.github.com/repos/${owner}/${repoName}/releases/${release.id}/assets?name=dsh-ssh-mac.tgz`, {
